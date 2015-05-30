@@ -1,4 +1,8 @@
+#include <algorithm>
+#include <cfloat>
 #include <vector>
+
+#include "thrust/device_vector.h"
 
 #include "caffe/layer.hpp"
 #include "caffe/util/math_functions.hpp"
@@ -70,7 +74,6 @@ void NormLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
   const Dtype* top_diff = top[0]->gpu_diff();
   Dtype* bottom_diff = bottom[0]->mutable_gpu_diff();
   Dtype* scale_data = scale_.mutable_gpu_data();
-  int count = top[0]->count();
 
   int num = bottom[0]->num();
   int channels = bottom[0]->channels();
