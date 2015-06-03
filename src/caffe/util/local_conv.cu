@@ -677,7 +677,7 @@ void TxW2B(const Dtype* top_diff, const Dtype* weight, Dtype* bottom_diff,
   int BZ = 1;
   int num_per_thread = 4;
   int channels_per_thread = 4;
-  int num_output_per_block = 4;
+  //int num_output_per_block = 4;
 
   dim3 threads(BX, BY, BZ);
   dim3 blocks = dim3(DIVUP(num, BX*num_per_thread),
