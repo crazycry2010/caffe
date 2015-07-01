@@ -91,8 +91,16 @@ def main(argv):
 
     inputs = {}
     if args.multiview:
-        inputs['data'] = caffe.io.oversample(data.transpose(0,2,3,1), crop_dims)
-        inputs['data'] = inputs['data'].transpose(0,3,1,2)
+        start_positions = [(0,0), (0, 4), (0, 8),
+                           (4, 0), (4, 4), (4, 8),
+                           (8, 0), (8, 4), (8, 8)]
+        end_positions = [(sy+24, sx+24) for (sy,sx) in start_positions]
+        ix = 0
+        inputs['data'] = np.empty((9 * len(data), 3, 24, 24), dtype=np.float32)
+        for im in data:
+            for i in xrange(9):
+                inputs['data'][ix] = im[:,start_positions[i][0]:end_positions[i][0],start_positions[i][1]:end_positions[i][1]]
+                ix += 1
     else:
         center = np.array(data[0,0,:,:].shape) / 2.0
         crop = np.tile(center, (1, 2))[0] + np.concatenate([-crop_dims / 2.0,crop_dims / 2.0])
@@ -102,7 +110,7 @@ def main(argv):
     out = net.forward_all(**inputs)
     predictions = out['prob'];
     if args.multiview:
-        predictions = predictions.reshape((len(predictions) / 10, 10, -1))
+        predictions = predictions.reshape((len(predictions) / 9, 9, -1))
         predictions = predictions.mean(1)
     predict_label = predictions.argmax(1)
     acc = predict_label == label.reshape(-1)
