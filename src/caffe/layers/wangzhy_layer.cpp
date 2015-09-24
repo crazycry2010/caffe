@@ -49,6 +49,10 @@ void WangzhyLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
             top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
                     bottom[0]->height(), bottom[0]->width());
             break;
+        case WangzhyParameter_Op_Mirror:
+            top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
+                    bottom[0]->height(), bottom[0]->width());
+            break;
     }
 }
 

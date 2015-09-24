@@ -1137,6 +1137,7 @@ message WangzhyParameter {
     None = 0;
     Crop = 1;
     Poly = 2;
+    Mirror = 3;
   }
   optional Op operation = 10 [default = None]; // element-wise operation
   // Crop

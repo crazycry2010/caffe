@@ -103,6 +103,38 @@ __global__ void PolyBlobBackward(const int n, const Dtype* top_diff, const Dtype
   }
 }
 
+template <typename Dtype>
+__global__ void MirrorForward(const int n, const int channels, const int height,
+    const int width, const Dtype* bottom_data, Dtype* top_data) {
+  CUDA_KERNEL_LOOP(index, n) {
+    int nn = index / channels / height / width;
+    int c = (index / height / width) % channels;
+    int h = (index / width) % height;
+    int w = index % width;
+    int bottom_index = index;
+    int top_index = nn * channels * height * width
+            + c * height * width + h * width
+            + (width - 1 - w);
+    top_data[top_index] = bottom_data[bottom_index];
+  }
+}
+
+template <typename Dtype>
+__global__ void MirrorBackward(const int n, const int channels, const int height,
+    const int width, const Dtype* top_diff, Dtype* bottom_diff) {
+  CUDA_KERNEL_LOOP(index, n) {
+    int nn = index / channels / height / width;
+    int c = (index / height / width) % channels;
+    int h = (index / width) % height;
+    int w = index % width;
+    int bottom_index = index;
+    int top_index = nn * channels * height * width
+            + c * height * width + h * width
+            + (width - 1 - w);
+    bottom_diff[bottom_index] = top_diff[top_index];
+  }
+}
+
 template <typename Dtype> void WangzhyLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
     switch (op_) {
@@ -147,6 +179,15 @@ template <typename Dtype> void WangzhyLayer<Dtype>::Forward_gpu(const vector<Blo
                 top[0]->count(), bottom_data, poly, top_data);
     }
     break;
+    case WangzhyParameter_Op_Mirror: 
+    {
+        const Dtype* bottom_data = bottom[0]->gpu_data();
+        Dtype* top_data = top[0]->mutable_gpu_data();
+        MirrorForward<Dtype><<<CAFFE_GET_BLOCKS(top[0]->count()), CAFFE_CUDA_NUM_THREADS>>>(
+                top[0]->count(), top[0]->channels(), top[0]->height(),
+                top[0]->width(), bottom_data, top_data);
+    }
+    break;
     }
 }
 
@@ -189,6 +230,19 @@ void WangzhyLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
             caffe_gpu_set<Dtype>(this->blobs_[0]->count(), Dtype(0), poly_diff);
             PolyBlobBackward<Dtype><<<CAFFE_GET_BLOCKS(top[0]->count()), CAFFE_CUDA_NUM_THREADS>>>(
                     top[0]->count(), top_diff, bottom_data, bottom_diff);
+        }
+    }
+    break;
+    case WangzhyParameter_Op_Mirror: 
+    {
+        const Dtype* top_diff = top[0]->gpu_diff();
+        const Dtype* bottom_data = bottom[0]->gpu_data();
+        Dtype* bottom_diff = bottom[0]->mutable_gpu_diff();
+        // gradient w.r.t. bottom data, if necessary.
+        if (propagate_down[0]) {
+            MirrorBackward<Dtype><<<CAFFE_GET_BLOCKS(top[0]->count()), CAFFE_CUDA_NUM_THREADS>>>(
+                    top[0]->count(), top[0]->channels(), top[0]->height(),
+                    top[0]->width(), top_diff, bottom_diff);
         }
     }
     break;
