@@ -1234,21 +1234,32 @@ message WangzhyParameter {
     Crop = 1;
     Poly = 2;
     Mirror = 3;
+    Affine = 4;
+    EmbedAccuracy = 5;
+    OneHot = 6;
   }
-  optional Op operation = 10 [default = None]; // element-wise operation
+  optional Op operation = 1 [default = None]; // element-wise operation
   // Crop
-  optional bool random = 1 [default = false];
-  optional bool mirror = 2 [default = false];
-  optional uint32 crop_size = 3 [default = 0];
+  optional bool random = 2 [default = false];
+  optional bool mirror = 3 [default = false];
+  optional uint32 crop_size = 4 [default = 0];
 
-  optional uint32 start_h = 4 [default = 0];
-  optional uint32 start_w = 5 [default = 0];
-  optional uint32 end_h = 6 [default = 0];
-  optional uint32 end_w = 7 [default = 0];
+  optional uint32 start_h = 5 [default = 0];
+  optional uint32 start_w = 6 [default = 0];
+  optional uint32 end_h = 7 [default = 0];
+  optional uint32 end_w = 8 [default = 0];
   // or
-  optional uint32 crop_at_h = 8 [default = 0];
-  optional uint32 crop_at_w = 9 [default = 0];
+  optional uint32 crop_at_h = 9 [default = 0];
+  optional uint32 crop_at_w = 10 [default = 0];
 
   // Poly
+
+  // Affine
+  optional float d_angle = 11 [default = 0];
+  optional float d_scale = 12 [default = 0];
+  optional float d_center = 13 [default = 0];
+  // EmbedAccuracy
+  // OneHot
+  optional uint32 input_dim = 14;
 
 }

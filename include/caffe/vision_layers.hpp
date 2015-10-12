@@ -660,6 +660,17 @@ class WangzhyLayer : public Layer<Dtype> {
   Blob<unsigned int> rand_h_vec_;
   Blob<unsigned int> rand_w_vec_;
   // poly
+  // mirror
+  // affine
+  Dtype angle;
+  Dtype scale;
+  int center_h;
+  int center_w;
+  Dtype m0, m1, m2, m3, m4, m5;
+  Dtype im0, im1, im2, im3, im4, im5;
+  int mirror;
+  //int border;
+  // embedaccuracy
 };
 
 }  // namespace caffe

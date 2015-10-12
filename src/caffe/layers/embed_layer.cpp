@@ -62,6 +62,7 @@ void EmbedLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     bias_multiplier_.Reshape(bias_shape);
     caffe_set(M_, Dtype(1), bias_multiplier_.mutable_cpu_data());
   }
+  top[1]->Reshape(this->blobs_[0]->shape());
 }
 
 template <typename Dtype>

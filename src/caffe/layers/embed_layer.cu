@@ -56,6 +56,9 @@ void EmbedLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
         bias_multiplier_.gpu_data(),
         this->blobs_[1]->gpu_data(), Dtype(1), top_data);
   }
+  Dtype* top_data1 = top[1]->mutable_gpu_data();
+  const int count1 = top[1]->count();
+  caffe_copy(count1, weight, top_data1);
 }
 
 template <typename Dtype>

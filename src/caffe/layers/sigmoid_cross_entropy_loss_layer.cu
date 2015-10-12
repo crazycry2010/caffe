@@ -13,8 +13,15 @@ void SigmoidCrossEntropyLossLayer<Dtype>::Backward_gpu(
     const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom) {
   if (propagate_down[1]) {
-    LOG(FATAL) << this->type()
-               << " Layer cannot backpropagate to label inputs.";
+    const int count = bottom[1]->count();
+    const int num = bottom[1]->num();
+    const Dtype* input_data = bottom[0]->gpu_data();
+    Dtype* bottom_diff = bottom[1]->mutable_gpu_diff();
+    caffe_copy(count, input_data, bottom_diff);
+    const Dtype loss_weight = -top[0]->cpu_diff()[0];
+    caffe_gpu_scal(count, loss_weight / num, bottom_diff);
+    //LOG(FATAL) << this->type()
+    //           << " Layer cannot backpropagate to label inputs.";
   }
   if (propagate_down[0]) {
     // First, compute the diff

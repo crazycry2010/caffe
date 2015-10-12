@@ -30,6 +30,14 @@ void WangzhyLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
           }
           this->param_propagate_down_.resize(this->blobs_.size(), true);
           break;
+        case WangzhyParameter_Op_Mirror:
+          break;
+        case WangzhyParameter_Op_Affine:
+          break;
+        case WangzhyParameter_Op_EmbedAccuracy:
+            break;
+        case WangzhyParameter_Op_OneHot:
+            break;
     }
 
 }
@@ -52,6 +60,26 @@ void WangzhyLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
         case WangzhyParameter_Op_Mirror:
             top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
                     bottom[0]->height(), bottom[0]->width());
+            break;
+        case WangzhyParameter_Op_Affine:
+            {
+            //angle = this->layer_param().wangzhy_param().d_angle();
+            //angle = angle * 3.141592653 / 180;
+            //scale = 1 + this->layer_param().wangzhy_param().d_scale();
+            //Dtype alpha = cos(angle)*scale;
+            //Dtype beta = sin(angle)*scale;
+            //border = (alpha * bottom[0]->width() + beta * bottom[0]->height() - bottom[0]->width()) / 2 + 1;
+            //top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
+                   //bottom[0]->height() + 2 * border, bottom[0]->width() + 2 * border);
+            top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
+                   bottom[0]->height(), bottom[0]->width());
+            }
+            break;
+        case WangzhyParameter_Op_EmbedAccuracy:
+            top[0]->Reshape(bottom[0]->num(), bottom[1]->num(), 1, 1);
+            break;
+        case WangzhyParameter_Op_OneHot:
+            top[0]->Reshape(bottom[0]->num(), this->layer_param().wangzhy_param().input_dim(), 1, 1);
             break;
     }
 }
