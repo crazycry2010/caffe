@@ -7,53 +7,46 @@
 namespace caffe {
 
 template <typename Dtype>
-__global__ void CropRng(const int n, const int start, const int end, unsigned int* data) {
-  CUDA_KERNEL_LOOP(index, n) {
-    data[index] = start + data[index] % (end - start + 1);
+__global__ void CropForward(const int count, const int channels, const int height, const int width, 
+    const int off_h, const int off_w,
+    const Dtype* bottom_data, Dtype* top_data) {
+  CUDA_KERNEL_LOOP(index, count) {
+    int n = index / channels / height/ width;
+    int c = (index / height/ width) % channels;
+    int h = (index / width) % height;
+    int w = index % width;
+    if(off_h + h >=0 && off_h + h < height && off_w + w >= 0 && off_w + w < width){
+        int bottom_index = n * channels * height * width + c * height * width
+                + (off_h + h) * width + (off_w + w);
+        int top_index = index;
+        top_data[top_index] = bottom_data[bottom_index];
+    }
+    else {
+        int top_index = index;
+        top_data[top_index] = 0;
+    }
   }
 }
 
 template <typename Dtype>
-__global__ void CropForward(const int n, const int channels, const int height,
-    const int width, const int height_out, const int width_out, 
-    unsigned int* crop_at_h, unsigned int* crop_at_w,
-    const Dtype* bottom_data, Dtype* top_data, const bool mirror) {
-  CUDA_KERNEL_LOOP(index, n) {
-    int nn = index / channels / height_out / width_out;
-    int c = (index / height_out / width_out) % channels;
-    int ho = (index / width_out) % height_out;
-    int wo = index % width_out;
-    int bottom_index = nn * channels * height * width + c * height * width
-            + (crop_at_h[nn] + ho) * width + (crop_at_w[nn] + wo);
-    int top_index = index;
-    if(mirror) {
-        top_index = nn * channels * height_out * width_out
-            + c * height_out * width_out + ho * width_out
-            + (width_out - 1 - wo);
+__global__ void CropBackward(const int count, const int channels, const int height, const int width, 
+        const int off_h, const int off_w, 
+    const Dtype* top_diff, Dtype* bottom_diff) {
+  CUDA_KERNEL_LOOP(index, count) {
+    int n = index / channels / height/ width;
+    int c = (index / height/ width) % channels;
+    int h = (index / width) % height;
+    int w = index % width;
+    if(h - off_h >=0 && h - off_h < height && w - off_w >= 0 && w - off_w < width){
+        int top_index = n * channels * height * width + c * height * width
+                + (h - off_h) * width + (w - off_w);
+        int bottom_index = index;
+        bottom_diff[bottom_index] = top_diff[top_index];
     }
-    top_data[top_index] = bottom_data[bottom_index];
-  }
-}
-
-template <typename Dtype>
-__global__ void CropBackward(const int n, const int channels, const int height,
-    const int width, const int height_out, const int width_out, 
-    unsigned int* crop_at_h, unsigned int* crop_at_w,
-    const Dtype* top_diff, Dtype* bottom_diff, const bool mirror) {
-  CUDA_KERNEL_LOOP(index, n) {
-    int nn = index / channels / height_out / width_out;
-    int c = (index / height_out / width_out) % channels;
-    int ho = (index / width_out) % height_out;
-    int wo = index % width_out;
-    int bottom_index = nn * channels * height * width + c * height * width
-            + (crop_at_h[nn] + ho) * width + (crop_at_w[nn] + wo);
-    int top_index = index;
-    if(mirror) {
-        top_index = nn * channels * height_out * width_out
-            + c * height_out * width_out + ho * width_out
-            + (width_out - 1 - wo);
+    else {
+        int bottom_index = index;
+        bottom_diff[bottom_index] = 0;
     }
-    bottom_diff[bottom_index] = top_diff[top_index];
   }
 }
 
@@ -274,31 +267,20 @@ template <typename Dtype> void WangzhyLayer<Dtype>::Forward_gpu(const vector<Blo
     {
         const Dtype* bottom_data = bottom[0]->gpu_data();
         Dtype* top_data = top[0]->mutable_gpu_data();
-        unsigned int* crop_at_h = 
-            static_cast<unsigned int*>(rand_h_vec_.mutable_gpu_data());
-        unsigned int* crop_at_w = 
-            static_cast<unsigned int*>(rand_w_vec_.mutable_gpu_data());
-
-        if(this->layer_param().wangzhy_param().random()) {
-            caffe_gpu_rng_uniform(bottom[0]->num(), crop_at_h);
-            CropRng<Dtype><<<CAFFE_GET_BLOCKS(bottom[0]->num()), CAFFE_CUDA_NUM_THREADS>>>(
-                    bottom[0]->num(), this->layer_param().wangzhy_param().start_h(),
-                    this->layer_param().wangzhy_param().end_h(), crop_at_h);
-            caffe_gpu_rng_uniform(bottom[0]->num(), crop_at_w);
-            CropRng<Dtype><<<CAFFE_GET_BLOCKS(bottom[0]->num()), CAFFE_CUDA_NUM_THREADS>>>(
-                    bottom[0]->num(), this->layer_param().wangzhy_param().start_w(),
-                    this->layer_param().wangzhy_param().end_w(), crop_at_w);
-        } else {
-            caffe_gpu_set<int>(bottom[0]->num(), this->layer_param().wangzhy_param().crop_at_h(), 
-                    (int*) crop_at_h);
-            caffe_gpu_set<int>(bottom[0]->num(), this->layer_param().wangzhy_param().crop_at_w(), 
-                    (int*) crop_at_w);
+        Dtype rand= 0;
+        caffe_rng_uniform<Dtype>(1, 0, 3, &rand);
+        off_h = (int)rand - 1;
+        caffe_rng_uniform<Dtype>(1, 0, 3, &rand);
+        off_w = (int)rand - 1;
+        if (this->phase_ == TEST) {
+            off_h = 0;
+            off_w = 0;
         }
 
+
         CropForward<Dtype><<<CAFFE_GET_BLOCKS(top[0]->count()), CAFFE_CUDA_NUM_THREADS>>>(
-                top[0]->count(), bottom[0]->channels(), bottom[0]->height(), bottom[0]->width(),
-                top[0]->height(), top[0]->width(), crop_at_h, crop_at_w, bottom_data, top_data,
-                this->layer_param().wangzhy_param().mirror());
+                top[0]->count(), top[0]->channels(), top[0]->height(), top[0]->width(),
+                off_h, off_w, bottom_data, top_data);
         CUDA_POST_KERNEL_CHECK;
     }
     break;
@@ -326,31 +308,36 @@ template <typename Dtype> void WangzhyLayer<Dtype>::Forward_gpu(const vector<Blo
     {
         const Dtype* bottom_data = bottom[0]->gpu_data();
         Dtype* top_data = top[0]->mutable_gpu_data();
-        if (this->phase_ == TRAIN) {
+          Dtype rand;
           if(this->layer_param().wangzhy_param().d_angle() == 0){
               angle = 0;
           } else {
-              caffe_rng_uniform<Dtype>(1, -this->layer_param().wangzhy_param().d_angle(), this->layer_param().wangzhy_param().d_angle(), &angle);
-              angle = 0 + angle * 3.141592653 / 180;
+              caffe_rng_uniform<Dtype>(1, 0, 2*this->layer_param().wangzhy_param().d_angle(), &rand);
+              angle = 0 + (rand - this->layer_param().wangzhy_param().d_angle())* 3.141592653 / 180;
           }
           if(this->layer_param().wangzhy_param().d_scale() == 0) {
               scale = 1;
           } else {
-              caffe_rng_uniform<Dtype>(1, -this->layer_param().wangzhy_param().d_scale(), this->layer_param().wangzhy_param().d_scale(), &scale);
-              scale = 1 + scale;
+              caffe_rng_uniform<Dtype>(1, 0, 2 * this->layer_param().wangzhy_param().d_scale(), &rand);
+              scale = 1 + (rand - this->layer_param().wangzhy_param().d_scale());
           }
           if(this->layer_param().wangzhy_param().d_center() == 0){
               center_w = bottom[0]->height() / 2;
               center_h = bottom[0]->width() / 2;
           }
           else {
-              Dtype center = 0;
-              caffe_rng_uniform<Dtype>(1, -this->layer_param().wangzhy_param().d_center(), this->layer_param().wangzhy_param().d_center(), &center);
-              center_w = bottom[0]->height() / 2 + (int)center;
-              center_h = bottom[0]->width() / 2 + (int)center;
+              caffe_rng_uniform<Dtype>(1, 0, 2*this->layer_param().wangzhy_param().d_center()+1, &rand);
+              center_w = bottom[0]->height() / 2 + ((int)rand - this->layer_param().wangzhy_param().d_center());
+              center_h = bottom[0]->width() / 2 + ((int)rand - this->layer_param().wangzhy_param().d_center());
           }
           caffe_rng_bernoulli(1, 0.5, &mirror);
           mirror = 0;
+          if (this->phase_ == TEST) {
+              angle = 0;
+              scale = 1;
+              center_w = bottom[0]->height() / 2;
+              center_h = bottom[0]->width() / 2;
+          }
 
           Dtype alpha = cos(angle)*scale;
           Dtype beta = sin(angle)*scale;
@@ -376,20 +363,6 @@ template <typename Dtype> void WangzhyLayer<Dtype>::Forward_gpu(const vector<Blo
               top[0]->width(), bottom[0]->height(), bottom[0]->width(),
               im0, im1, im2,im3, im4, im5, bottom_data, top_data, mirror);
           CUDA_POST_KERNEL_CHECK;
-        } else {
-          /*for(int n = 0;n < bottom[0]->num();n++){*/
-            /*for(int c = 0;c < bottom[0]->channels();c++){*/
-                /*for(int h = 0;h < bottom[0]->height();h++){*/
-                    /*int bottom_offset = n * bottom[0]->channels() * bottom[0]->height() * bottom[0]->width()*/
-                        /*+ c * bottom[0]->height() * bottom[0]->width() + h * bottom[0]->width();*/
-                    /*int top_offset = n * top[0]->channels() * top[0]->height() * top[0]->width()*/
-                        /*+ c * top[0]->height() * top[0]->width() + h * top[0]->width() + border;*/
-                    /*caffe_copy(bottom[0]->width(), bottom_data+bottom_offset, top_data+top_offset);*/
-                /*}*/
-            /*}*/
-          /*}*/
-            caffe_copy(bottom[0]->count(), bottom_data, top_data);
-        }
     }
     break;
     case WangzhyParameter_Op_EmbedAccuracy:
@@ -425,6 +398,65 @@ template <typename Dtype> void WangzhyLayer<Dtype>::Forward_gpu(const vector<Blo
             top_data[i*dim+value] = 1;
         }
     }
+    break;
+    case WangzhyParameter_Op_Resize:
+    {
+        const Dtype* bottom_data = bottom[0]->gpu_data();
+        Dtype* top_data = top[0]->mutable_gpu_data();
+        angle = 0;
+        scale = resize_scale;
+        /*center_w = bottom[0]->height() / 2;*/
+        /*center_h = bottom[0]->width() / 2;*/
+        center_w = 0;
+        center_h = 0;
+        mirror = 0;
+
+        Dtype alpha = cos(angle)*scale;
+        Dtype beta = sin(angle)*scale;
+        m0 = alpha;
+        m1 = beta;
+        /*m2 = (1-alpha)*center_w - beta*center_h + border;*/
+        m2 = (1-alpha)*center_w - beta*center_h;
+        m3 = -beta;
+        m4 = alpha;
+        /*m5 = beta*center_w + (1-alpha)*center_h + border;*/
+        m5 = beta*center_w + (1-alpha)*center_h;
+        Dtype D = m0*m4-m1*m3;
+        D = (D != 0) ? 1./D : 0;
+        im0 = m4*D;
+        im1 = -m1*D;
+        im3= -m3*D;
+        im4 = m0*D;
+        im2 = -im0*m2-im1*m5;
+        im5 = -im3*m2-im4*m5;
+
+        AffineForward<Dtype><<<CAFFE_GET_BLOCKS(top[0]->count()), CAFFE_CUDA_NUM_THREADS>>>(
+                top[0]->count(), top[0]->channels(), top[0]->height(),
+                top[0]->width(), bottom[0]->height(), bottom[0]->width(),
+                im0, im1, im2,im3, im4, im5, bottom_data, top_data, mirror);
+        CUDA_POST_KERNEL_CHECK;
+    }
+    break;
+    case WangzhyParameter_Op_EuclideanAccuracy:
+    {
+        const Dtype* bottom_data = bottom[0]->cpu_data(); // N * N_
+        const Dtype* weight = bottom[1]->cpu_data();// K_ * N_
+        Dtype* top_data = top[0]->mutable_cpu_data(); // N * K_
+        const int N = bottom[0]->num();
+        const int N_ = bottom[0]->count() / N;
+        const int K_ = bottom[1]->num();
+        Dtype loss = 0;
+        for(int i = 0;i < N;i++){
+            for(int j = 0;j < K_;j++){
+                loss = 0;
+                for(int k = 0;k < N_;k++){
+                    loss -= pow(bottom_data[i*N_+k] - weight[j*N_+k],2);
+                }
+                top_data[i*K_+j] = loss;
+            }
+        }
+    }
+    break;
     }
 }
 
@@ -438,15 +470,10 @@ void WangzhyLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
         if (propagate_down[0]) {
             const Dtype* top_diff = top[0]->gpu_diff();
             Dtype* bottom_diff = bottom[0]->mutable_gpu_diff();
-            unsigned int* crop_at_h = 
-                static_cast<unsigned int*>(rand_h_vec_.mutable_gpu_data());
-            unsigned int* crop_at_w = 
-                static_cast<unsigned int*>(rand_w_vec_.mutable_gpu_data());
             caffe_gpu_set<Dtype>(bottom[0]->count(), Dtype(0), bottom_diff);
-            CropBackward<Dtype><<<CAFFE_GET_BLOCKS(top[0]->count()), CAFFE_CUDA_NUM_THREADS>>>(
-                    top[0]->count(), bottom[0]->channels(), bottom[0]->height(), bottom[0]->width(),
-                    top[0]->height(), top[0]->width(), crop_at_h, crop_at_w, top_diff, bottom_diff,
-                    this->layer_param().wangzhy_param().mirror());
+            CropBackward<Dtype><<<CAFFE_GET_BLOCKS(bottom[0]->count()), CAFFE_CUDA_NUM_THREADS>>>(
+                    bottom[0]->count(), bottom[0]->channels(), bottom[0]->height(), bottom[0]->width(),
+                    off_h, off_w, top_diff, bottom_diff);
             CUDA_POST_KERNEL_CHECK;
         }
     }
@@ -505,6 +532,24 @@ void WangzhyLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
         }
         break;
     case WangzhyParameter_Op_OneHot:
+        {
+        }
+        break;
+    case WangzhyParameter_Op_Resize:
+        {
+            const Dtype* top_diff = top[0]->gpu_diff();
+            Dtype* bottom_diff = bottom[0]->mutable_gpu_diff();
+            // gradient w.r.t. bottom data, if necessary.
+            if (propagate_down[0]) {
+                AffineBackward<Dtype><<<CAFFE_GET_BLOCKS(bottom[0]->count()), CAFFE_CUDA_NUM_THREADS>>>(
+                        bottom[0]->count(), bottom[0]->channels(), bottom[0]->height(),
+                        bottom[0]->width(), top[0]->height(), top[0]->width(),
+                        m0, m1, m2, m3, m4, m5, top_diff, bottom_diff, mirror);
+                CUDA_POST_KERNEL_CHECK;
+            }
+        }
+        break;
+    case WangzhyParameter_Op_EuclideanAccuracy:
         {
         }
         break;

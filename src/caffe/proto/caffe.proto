@@ -1237,6 +1237,8 @@ message WangzhyParameter {
     Affine = 4;
     EmbedAccuracy = 5;
     OneHot = 6;
+    Resize = 7;
+    EuclideanAccuracy = 8;
   }
   optional Op operation = 1 [default = None]; // element-wise operation
   // Crop
@@ -1261,5 +1263,7 @@ message WangzhyParameter {
   // EmbedAccuracy
   // OneHot
   optional uint32 input_dim = 14;
+  // Resize
+  optional float scale = 15 [default = 1];
 
 }

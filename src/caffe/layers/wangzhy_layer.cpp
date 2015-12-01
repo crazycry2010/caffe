@@ -38,6 +38,10 @@ void WangzhyLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
             break;
         case WangzhyParameter_Op_OneHot:
             break;
+        case WangzhyParameter_Op_Resize:
+            break;
+        case WangzhyParameter_Op_EuclideanAccuracy:
+            break;
     }
 
 }
@@ -48,10 +52,7 @@ void WangzhyLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     switch (op_) {
         case WangzhyParameter_Op_Crop:
             top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
-                    this->layer_param().wangzhy_param().crop_size(),
-                    this->layer_param().wangzhy_param().crop_size());
-            rand_h_vec_.Reshape(bottom[0]->num(),1,1,1);
-            rand_w_vec_.Reshape(bottom[0]->num(),1,1,1);
+                    bottom[0]->height(), bottom[0]->width());
             break;
         case WangzhyParameter_Op_Poly:
             top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
@@ -80,6 +81,15 @@ void WangzhyLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
             break;
         case WangzhyParameter_Op_OneHot:
             top[0]->Reshape(bottom[0]->num(), this->layer_param().wangzhy_param().input_dim(), 1, 1);
+            break;
+        case WangzhyParameter_Op_Resize:
+            resize_scale = this->layer_param().wangzhy_param().scale();
+            top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
+                   resize_scale * bottom[0]->height(),
+                   resize_scale * bottom[0]->width());
+            break;
+        case WangzhyParameter_Op_EuclideanAccuracy:
+            top[0]->Reshape(bottom[0]->num(), bottom[1]->num(), 1, 1);
             break;
     }
 }

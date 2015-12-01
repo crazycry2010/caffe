@@ -657,8 +657,8 @@ class WangzhyLayer : public Layer<Dtype> {
 
   WangzhyParameter_Op op_;
   // crop
-  Blob<unsigned int> rand_h_vec_;
-  Blob<unsigned int> rand_w_vec_;
+  int off_w;
+  int off_h;
   // poly
   // mirror
   // affine
@@ -671,6 +671,8 @@ class WangzhyLayer : public Layer<Dtype> {
   int mirror;
   //int border;
   // embedaccuracy
+  // Resize
+  Dtype resize_scale;
 };
 
 }  // namespace caffe
