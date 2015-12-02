@@ -463,7 +463,56 @@ void Blob<Dtype>::FromProto(const BlobProto& proto, bool reshape) {
     }
     Reshape(shape);
   } else {
-    CHECK(ShapeEquals(proto)) << "shape mismatch (reshape not set)";
+    //CHECK(ShapeEquals(proto)) << "shape mismatch (reshape not set)";
+    if(!ShapeEquals(proto)){
+      vector<int> shape;
+      if (proto.has_num() || proto.has_channels() ||
+          proto.has_height() || proto.has_width()) {
+        shape.resize(4);
+        shape[0] = proto.num();
+        shape[1] = proto.channels();
+        shape[2] = proto.height();
+        shape[3] = proto.width();
+      } else {
+        shape.resize(proto.shape().dim_size());
+        for (int i = 0; i < 4; ++i) {
+          if(i < proto.shape().dim_size()){
+            shape[i] = proto.shape().dim(i);
+          } else {
+            shape[i] = 1;
+          }
+        }
+      }
+      Dtype* data_vec = mutable_cpu_data();
+      LOG(INFO) << "Copy From " << num() << "." << channels() << "." << height() << "." << width() <<
+        "to " << shape[0] << "." << shape[1] << "." << shape[2] << "." << shape[3];
+      for (int n = 0;n < num(); ++n){
+        for(int c = 0;c < channels(); ++c) {
+          for(int h = 0;h < height(); ++h) {
+            for(int w = 0;w < width(); ++w) {
+              int nn = n % shape[0];
+              int cc = c % shape[1];
+              int hh = h % shape[2];
+              int ww = w % shape[3];
+              int data_offset = n * channels() * height() * width()
+                + c * height() * width()
+                + h * width() + w;
+              int proto_offset = nn * shape[1] * shape[2] * shape[3]
+                + cc * shape[2] * shape[3]
+                + hh * shape[3] + ww;
+              int repetition = 1;
+              if(nn < num() % shape[0]){
+                repetition = (int)(num() / shape[0])+1;
+              }else{
+                repetition = std::max((int)(num()/shape[0]), 1);
+              }
+              data_vec[data_offset] = proto.data(proto_offset)/repetition;
+            }
+          }
+        }
+      }
+      return;
+    }
   }
   // copy data
   Dtype* data_vec = mutable_cpu_data();
