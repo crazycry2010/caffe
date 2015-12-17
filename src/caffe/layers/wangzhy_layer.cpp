@@ -7,13 +7,13 @@
 
 namespace caffe {
 
-template <typename Dtype>
-void WangzhyLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
-    const vector<Blob<Dtype>*>& top) {
-  op_ = this->layer_param_.wangzhy_param().operation();
-    switch (op_) {
+  template <typename Dtype>
+    void WangzhyLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+        const vector<Blob<Dtype>*>& top) {
+      op_ = this->layer_param_.wangzhy_param().operation();
+      switch (op_) {
         case WangzhyParameter_Op_Crop:
-            break;
+          break;
         case WangzhyParameter_Op_Poly:
           if (this->blobs_.size() > 0) {
             LOG(INFO) << "Skipping parameter initialization";
@@ -35,35 +35,35 @@ void WangzhyLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
         case WangzhyParameter_Op_Affine:
           break;
         case WangzhyParameter_Op_EmbedAccuracy:
-            break;
+          break;
         case WangzhyParameter_Op_OneHot:
-            break;
+          break;
         case WangzhyParameter_Op_Resize:
-            break;
+          break;
         case WangzhyParameter_Op_EuclideanAccuracy:
-            break;
+          break;
+      }
+
     }
 
-}
-
-template <typename Dtype>
-void WangzhyLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
-    const vector<Blob<Dtype>*>& top) {
-    switch (op_) {
+  template <typename Dtype>
+    void WangzhyLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
+        const vector<Blob<Dtype>*>& top) {
+      switch (op_) {
         case WangzhyParameter_Op_Crop:
-            top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
-                    bottom[0]->height(), bottom[0]->width());
-            break;
+          top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
+              bottom[0]->height(), bottom[0]->width());
+          break;
         case WangzhyParameter_Op_Poly:
-            top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
-                    bottom[0]->height(), bottom[0]->width());
-            break;
+          top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
+              bottom[0]->height(), bottom[0]->width());
+          break;
         case WangzhyParameter_Op_Mirror:
-            top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
-                    bottom[0]->height(), bottom[0]->width());
-            break;
+          top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
+              bottom[0]->height(), bottom[0]->width());
+          break;
         case WangzhyParameter_Op_Affine:
-            {
+          {
             //angle = this->layer_param().wangzhy_param().d_angle();
             //angle = angle * 3.141592653 / 180;
             //scale = 1 + this->layer_param().wangzhy_param().d_scale();
@@ -71,46 +71,48 @@ void WangzhyLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
             //Dtype beta = sin(angle)*scale;
             //border = (alpha * bottom[0]->width() + beta * bottom[0]->height() - bottom[0]->width()) / 2 + 1;
             //top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
-                   //bottom[0]->height() + 2 * border, bottom[0]->width() + 2 * border);
-            top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
-                   bottom[0]->height(), bottom[0]->width());
+            //bottom[0]->height() + 2 * border, bottom[0]->width() + 2 * border);
+            for(int i = 0;i < bottom.size(); i++){
+              top[i]->Reshape(bottom[i]->num(), bottom[i]->channels(),
+                  bottom[i]->height(), bottom[i]->width());
             }
-            break;
+          }
+          break;
         case WangzhyParameter_Op_EmbedAccuracy:
-            top[0]->Reshape(bottom[0]->num(), bottom[1]->num(), 1, 1);
-            break;
+          top[0]->Reshape(bottom[0]->num(), bottom[1]->num(), 1, 1);
+          break;
         case WangzhyParameter_Op_OneHot:
-            top[0]->Reshape(bottom[0]->num(), this->layer_param().wangzhy_param().input_dim(), 1, 1);
-            break;
+          top[0]->Reshape(bottom[0]->num(), this->layer_param().wangzhy_param().input_dim(), 1, 1);
+          break;
         case WangzhyParameter_Op_Resize:
-            resize_scale = this->layer_param().wangzhy_param().scale();
-            top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
-                   resize_scale * bottom[0]->height(),
-                   resize_scale * bottom[0]->width());
-            break;
+          resize_scale = this->layer_param().wangzhy_param().scale();
+          top[0]->Reshape(bottom[0]->num(), bottom[0]->channels(),
+              resize_scale * bottom[0]->height(),
+              resize_scale * bottom[0]->width());
+          break;
         case WangzhyParameter_Op_EuclideanAccuracy:
-            top[0]->Reshape(bottom[0]->num(), bottom[1]->num(), 1, 1);
-            break;
+          top[0]->Reshape(bottom[0]->num(), bottom[1]->num(), 1, 1);
+          break;
+      }
     }
-}
 
-template <typename Dtype>
-void WangzhyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-    const vector<Blob<Dtype>*>& top) {
-}
+  template <typename Dtype>
+    void WangzhyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+        const vector<Blob<Dtype>*>& top) {
+    }
 
-template <typename Dtype>
-void WangzhyLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down,
-    const vector<Blob<Dtype>*>& bottom) {
-}
+  template <typename Dtype>
+    void WangzhyLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
+        const vector<bool>& propagate_down,
+        const vector<Blob<Dtype>*>& bottom) {
+    }
 
 
 #ifdef CPU_ONLY
-STUB_GPU(WangzhyLayer);
+  STUB_GPU(WangzhyLayer);
 #endif
 
-INSTANTIATE_CLASS(WangzhyLayer);
-REGISTER_LAYER_CLASS(Wangzhy);
+  INSTANTIATE_CLASS(WangzhyLayer);
+  REGISTER_LAYER_CLASS(Wangzhy);
 
 }  // namespace caffe

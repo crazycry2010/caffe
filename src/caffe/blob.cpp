@@ -464,28 +464,30 @@ void Blob<Dtype>::FromProto(const BlobProto& proto, bool reshape) {
     Reshape(shape);
   } else {
     //CHECK(ShapeEquals(proto)) << "shape mismatch (reshape not set)";
-    if(!ShapeEquals(proto)){
-      vector<int> shape;
-      if (proto.has_num() || proto.has_channels() ||
-          proto.has_height() || proto.has_width()) {
-        shape.resize(4);
-        shape[0] = proto.num();
-        shape[1] = proto.channels();
-        shape[2] = proto.height();
-        shape[3] = proto.width();
-      } else {
-        shape.resize(proto.shape().dim_size());
-        for (int i = 0; i < 4; ++i) {
-          if(i < proto.shape().dim_size()){
-            shape[i] = proto.shape().dim(i);
-          } else {
-            shape[i] = 1;
-          }
+    vector<int> shape;
+    if (proto.has_num() || proto.has_channels() ||
+        proto.has_height() || proto.has_width()) {
+      shape.resize(4);
+      shape[0] = proto.num();
+      shape[1] = proto.channels();
+      shape[2] = proto.height();
+      shape[3] = proto.width();
+    } else {
+      shape.resize(4);
+      for (int i = 0; i < 4; ++i) {
+        if(i < proto.shape().dim_size()){
+          shape[i] = proto.shape().dim(i);
+        } else {
+          shape[i] = 1;
         }
       }
+    }
+    if(num()*channels()*height()*width() == shape[0]*shape[1]*shape[2]*shape[3]){
+      ;
+    } else {
       Dtype* data_vec = mutable_cpu_data();
-      LOG(INFO) << "Copy From " << num() << "." << channels() << "." << height() << "." << width() <<
-        "to " << shape[0] << "." << shape[1] << "." << shape[2] << "." << shape[3];
+      LOG(INFO) << "Copy From " << shape[0] << "." << shape[1] << "." << shape[2] << "." << shape[3]
+        << "to " << num() << "." << channels() << "." << height() << "." << width();
       for (int n = 0;n < num(); ++n){
         for(int c = 0;c < channels(); ++c) {
           for(int h = 0;h < height(); ++h) {

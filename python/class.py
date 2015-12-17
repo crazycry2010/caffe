@@ -78,11 +78,11 @@ def main(argv):
     net = caffe.Net(model_file, pretrained_file, caffe.TEST)
     if args.train:
         num = 50000
-        data, label = get_train_lmdb("/home/wangzhy/data/cifar10/cifar10_train_lmdb/")
+        data, label = get_train_lmdb("/home/wangshiyao/data/cifar10/cifar10_train_lmdb/")
     else:
         num = 10000
-        data, label = get_test_lmdb("/home/wangzhy/data/cifar10/cifar10_test_lmdb/")
-    mean = get_mean("/home/wangzhy/data/cifar10/mean.binaryproto")
+        data, label = get_test_lmdb("/home/wangshiyao/data/cifar10/cifar10_test_lmdb/")
+    mean = get_mean("/home/wangshiyao/data/cifar10/mean.binaryproto")
     if args.crop:
         crop_dims = np.array([24,24])
         mean = mean[0,:,4:28,4:28]
