@@ -3,7 +3,7 @@
 
 #include "caffe/filler.hpp"
 #include "caffe/layer.hpp"
-#include "caffe/vision_layers.hpp"
+#include "caffe/layers/wangzhy_layer.hpp"
 
 namespace caffe {
 
@@ -41,6 +41,8 @@ namespace caffe {
         case WangzhyParameter_Op_Resize:
           break;
         case WangzhyParameter_Op_EuclideanAccuracy:
+          break;
+        default:
           break;
       }
 
@@ -92,6 +94,8 @@ namespace caffe {
           break;
         case WangzhyParameter_Op_EuclideanAccuracy:
           top[0]->Reshape(bottom[0]->num(), bottom[1]->num(), 1, 1);
+          break;
+        default:
           break;
       }
     }
