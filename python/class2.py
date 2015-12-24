@@ -7,11 +7,19 @@ import numpy as np
 import caffe
 import lmdb
 
-def get_test_lmdb(name):
-    data = np.zeros((10000,3,32,32), dtype=np.float32)
-    label = np.zeros((10000,1,1,1), dtype=np.float32)
+def get_lmdb(name):
     db = lmdb.open(name)
     txn= db.begin()
+    cursor = txn.cursor()
+
+    num = db.stat()['entries']
+    cursor.first()
+    value = cursor.value()
+    datum = caffe.proto.caffe_pb2.Datum()
+    datum.ParseFromString(value)
+    data = np.zeros((num, datum.channels, datum.height, datum.width), dtype=np.float32)
+    label = np.zeros((num,1,1,1), dtype=np.float32)
+
     cursor = txn.cursor()
     for idx, value in enumerate(cursor.iternext()):
         datum = caffe.proto.caffe_pb2.Datum()
@@ -19,20 +27,7 @@ def get_test_lmdb(name):
         array = caffe.io.datum_to_array(datum)
         label[idx] = datum.label
         data[idx] = array
-    return data, label
-def get_train_lmdb(name):
-    data = np.zeros((50000,3,32,32), dtype=np.float32)
-    label = np.zeros((50000,1,1,1), dtype=np.float32)
-    db = lmdb.open(name)
-    txn= db.begin()
-    cursor = txn.cursor()
-    for idx, value in enumerate(cursor.iternext()):
-        datum = caffe.proto.caffe_pb2.Datum()
-        datum.ParseFromString(value[1])
-        array = caffe.io.datum_to_array(datum)
-        label[idx] = datum.label
-        data[idx] = array
-    return data, label
+    return data, label, num
 def get_mean(name):
     file=open(name)
     data=file.read()
@@ -51,20 +46,28 @@ def main(argv):
         "--weights",
         help="Trained model weights file."
     )
-    def str2bool(v):
-        return v.lower() in ("yes", "True", "true", "y", "T", "t", "1")
-
-    parser.register('type','bool',str2bool)
+    parser.add_argument(
+        "--dataset",
+        help="dataset file."
+    )
+    parser.add_argument(
+        "--mean",
+        help="mean file."
+    )
+#    def str2bool(v):
+#        return v.lower() in ("yes", "True", "true", "y", "T", "t", "1")
+#
+#    parser.register('type','bool',str2bool)
+#    parser.add_argument(
+#        "--train",
+#        type='bool',
+#        help="test or train data?"
+#    )
     parser.add_argument(
         "--multiview",
         type=int,
         help="Switch for prediction from center crop alone instead of " +
              "averaging predictions across crops (default)."
-    )
-    parser.add_argument(
-        "--train",
-        type='bool',
-        help="test or train data?"
     )
     args = parser.parse_args()
 
@@ -73,14 +76,8 @@ def main(argv):
     caffe.set_mode_gpu()
     net = caffe.Net(net_file, weights_file, caffe.TEST)
 
-    if args.train:
-        num = 50000
-        data, label = get_train_lmdb("/home/wangzhy/data/cifar10/cifar10_train_lmdb/")
-    else:
-        num = 10000
-        data, label = get_test_lmdb("/home/wangzhy/data/cifar10/cifar10_test_lmdb/")
-
-    mean = get_mean("/home/wangzhy/data/cifar10/mean.binaryproto")
+    data, label, num = get_lmdb(args.dataset)
+    mean = get_mean(args.mean)
 
     inputs = {}
     if (args.multiview == 0):
