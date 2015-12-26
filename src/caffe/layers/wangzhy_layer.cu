@@ -324,9 +324,9 @@ namespace caffe {
             center_h = bottom[0]->width() / 2;
           }
           else {
-            caffe_rng_uniform<Dtype>(1, 0, 2*this->layer_param().wangzhy_param().d_center()+1, &rand);
-            center_w = bottom[0]->height() / 2 + ((int)rand - this->layer_param().wangzhy_param().d_center());
-            center_h = bottom[0]->width() / 2 + ((int)rand - this->layer_param().wangzhy_param().d_center());
+            caffe_rng_uniform<Dtype>(1, 0, 2*this->layer_param().wangzhy_param().d_center(), &rand);
+            center_w = bottom[0]->height() / 2 + (rand - this->layer_param().wangzhy_param().d_center());
+            center_h = bottom[0]->width() / 2 + (rand - this->layer_param().wangzhy_param().d_center());
           }
           caffe_rng_bernoulli(1, 0.5, &mirror);
           mirror = 0;
