@@ -40,8 +40,8 @@ class WangzhyLayer : public Layer<Dtype> {
   // affine
   Dtype angle;
   Dtype scale;
-  int center_h;
-  int center_w;
+  Dtype center_h;
+  Dtype center_w;
   Dtype m0, m1, m2, m3, m4, m5;
   Dtype im0, im1, im2, im3, im4, im5;
   int mirror;
