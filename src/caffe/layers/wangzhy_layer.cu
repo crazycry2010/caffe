@@ -263,20 +263,24 @@ namespace caffe {
   template <typename Dtype> void WangzhyLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
     switch (op_) {
-      case WangzhyParameter_Op_Crop: 
+      case WangzhyParameter_Op_Crop:
         {
           const Dtype* bottom_data = bottom[0]->gpu_data();
           Dtype* top_data = top[0]->mutable_gpu_data();
-          Dtype rand= 0;
-          caffe_rng_uniform<Dtype>(1, 0, 3, &rand);
-          off_h = (int)rand - 1;
-          caffe_rng_uniform<Dtype>(1, 0, 3, &rand);
-          off_w = (int)rand - 1;
-          if (this->phase_ == TEST) {
-            off_h = 0;
-            off_w = 0;
+          if(this->layer_param().wangzhy_param().random()){
+            Dtype rand= 0;
+            caffe_rng_uniform<Dtype>(1, 0, 3, &rand);
+            off_h = (int)rand - 1;
+            caffe_rng_uniform<Dtype>(1, 0, 3, &rand);
+            off_w = (int)rand - 1;
+            if (this->phase_ == TEST) {
+              off_h = 0;
+              off_w = 0;
+            }
+          } else {
+            off_h = this->layer_param().wangzhy_param().start_h();
+            off_w = this->layer_param().wangzhy_param().start_w();
           }
-
 
           CropForward<Dtype><<<CAFFE_GET_BLOCKS(top[0]->count()), CAFFE_CUDA_NUM_THREADS>>>(
               top[0]->count(), top[0]->channels(), top[0]->height(), top[0]->width(),
@@ -310,24 +314,52 @@ namespace caffe {
           if(this->layer_param().wangzhy_param().d_angle() == 0){
             angle = 0;
           } else {
-            caffe_rng_uniform<Dtype>(1, 0, 2*this->layer_param().wangzhy_param().d_angle(), &rand);
-            angle = 0 + (rand - this->layer_param().wangzhy_param().d_angle())* 3.141592653 / 180;
+            /*caffe_rng_uniform<Dtype>(1, 0, 2*this->layer_param().wangzhy_param().d_angle(), &rand);*/
+            caffe_rng_gaussian<Dtype>(1, 0, this->layer_param().wangzhy_param().d_angle(), &rand);
+            angle = 0 + (rand) * 3.1415926 / 180;
           }
           if(this->layer_param().wangzhy_param().d_scale() == 0) {
             scale = 1;
           } else {
-            caffe_rng_uniform<Dtype>(1, 0, 2 * this->layer_param().wangzhy_param().d_scale(), &rand);
-            scale = 1 + (rand - this->layer_param().wangzhy_param().d_scale());
+            /*caffe_rng_uniform<Dtype>(1, 0, 2 * this->layer_param().wangzhy_param().d_scale(), &rand);*/
+            caffe_rng_gaussian<Dtype>(1, 0, this->layer_param().wangzhy_param().d_scale(), &rand);
+            scale = 1 + (rand);
           }
           if(this->layer_param().wangzhy_param().d_center() == 0){
-            center_w = bottom[0]->height() / 2;
-            center_h = bottom[0]->width() / 2;
+            center_h = bottom[0]->height() / 2;
+            center_w = bottom[0]->width() / 2;
           }
           else {
-            caffe_rng_uniform<Dtype>(1, 0, 2*this->layer_param().wangzhy_param().d_center(), &rand);
-            center_w = bottom[0]->height() / 2 + (rand - this->layer_param().wangzhy_param().d_center());
-            center_h = bottom[0]->width() / 2 + (rand - this->layer_param().wangzhy_param().d_center());
+            /*caffe_rng_uniform<Dtype>(1, 0, 2*this->layer_param().wangzhy_param().d_center(), &rand);*/
+            caffe_rng_gaussian<Dtype>(1, 0, this->layer_param().wangzhy_param().d_center(), &rand);
+            center_h = bottom[0]->height() / 2 + (rand);
+            caffe_rng_gaussian<Dtype>(1, 0, this->layer_param().wangzhy_param().d_center(), &rand);
+            center_w = bottom[0]->width() / 2 + (rand);
+            if(center_h < 0)
+              center_h = 0;
+            else if(center_h > bottom[0]->height())
+              center_h = bottom[0]->height();
+            if(center_w < 0)
+              center_w = 0;
+            else if(center_w > bottom[0]->width())
+              center_w = bottom[0]->width();
           }
+
+          if(this->layer_param().wangzhy_param().random()) {
+            caffe_rng_uniform<Dtype>(1, 0, 3, &rand);
+            off_h = (int)rand - 1;
+            caffe_rng_uniform<Dtype>(1, 0, 3, &rand);
+            off_w = (int)rand - 1;
+          } else {
+            off_h = this->layer_param().wangzhy_param().start_h();
+            off_w = this->layer_param().wangzhy_param().start_w();
+          }
+
+          //LOG(INFO) << "angle: " << angle/3.1415926*180
+            //<< ", scale:" << scale
+            //<< ", center: (" << center_h << ", " << center_w << ")"
+            //<< ", off: (" << off_h << ", " << off_w << ")";
+
           caffe_rng_bernoulli(1, 0.5, &mirror);
           mirror = 0;
           if (this->phase_ == TEST) {
@@ -335,18 +367,18 @@ namespace caffe {
             scale = 1;
             center_w = bottom[0]->height() / 2;
             center_h = bottom[0]->width() / 2;
+            off_h = 0;
+            off_w = 0;
           }
 
           Dtype alpha = cos(angle)*scale;
           Dtype beta = sin(angle)*scale;
           m0 = alpha;
           m1 = beta;
-          /*m2 = (1-alpha)*center_w - beta*center_h + border;*/
-          m2 = (1-alpha)*center_w - beta*center_h;
+          m2 = (1-alpha)*center_w - beta*center_h + off_h;
           m3 = -beta;
           m4 = alpha;
-          /*m5 = beta*center_w + (1-alpha)*center_h + border;*/
-          m5 = beta*center_w + (1-alpha)*center_h;
+          m5 = beta*center_w + (1-alpha)*center_h + off_w;
           Dtype D = m0*m4-m1*m3;
           D = (D != 0) ? 1./D : 0;
           im0 = m4*D;
@@ -406,8 +438,6 @@ namespace caffe {
           Dtype* top_data = top[0]->mutable_gpu_data();
           angle = 0;
           scale = resize_scale;
-          /*center_w = bottom[0]->height() / 2;*/
-          /*center_h = bottom[0]->width() / 2;*/
           center_w = 0;
           center_h = 0;
           mirror = 0;
@@ -416,11 +446,9 @@ namespace caffe {
           Dtype beta = sin(angle)*scale;
           m0 = alpha;
           m1 = beta;
-          /*m2 = (1-alpha)*center_w - beta*center_h + border;*/
           m2 = (1-alpha)*center_w - beta*center_h;
           m3 = -beta;
           m4 = alpha;
-          /*m5 = beta*center_w + (1-alpha)*center_h + border;*/
           m5 = beta*center_w + (1-alpha)*center_h;
           Dtype D = m0*m4-m1*m3;
           D = (D != 0) ? 1./D : 0;
