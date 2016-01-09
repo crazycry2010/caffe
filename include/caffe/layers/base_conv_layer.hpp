@@ -84,6 +84,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   int num_;
   int channels_;
   int group_;
+  bool group_one_;
   int out_spatial_dim_;
   int weight_offset_;
   int num_output_;
@@ -161,6 +162,10 @@ class BaseConvolutionLayer : public Layer<Dtype> {
 
   Blob<Dtype> col_buffer_;
   Blob<Dtype> bias_multiplier_;
+ public:
+  void group_one_weights();
+  Blob<Dtype> no_multiplier_;
+  Blob<Dtype> nikhkw_mean_;
 };
 
 }  // namespace caffe

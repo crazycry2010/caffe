@@ -9,6 +9,21 @@
 namespace caffe {
 
 template <typename Dtype>
+void BaseConvolutionLayer<Dtype>::group_one_weights() {
+  const int no = this->blobs_[0]->num();
+  const int ni = this->blobs_[0]->channels();
+  const int kh = this->blobs_[0]->height();
+  const int kw = this->blobs_[0]->width();
+
+  caffe_gpu_gemv<Dtype>(CblasTrans, no, ni*kh*kw, 1./no,
+      this->blobs_[0]->gpu_data(), this->no_multiplier_.gpu_data(), 0.,
+      this->nikhkw_mean_.mutable_gpu_data());
+  caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, no, ni*kh*kw, 1, 1,
+      this->no_multiplier_.gpu_data(), this->nikhkw_mean_.gpu_data(), 0.,
+      this->blobs_[0]->mutable_gpu_data());
+}
+
+template <typename Dtype>
 void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   // Configure the kernel size, padding, stride, and inputs.
@@ -105,6 +120,7 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   num_output_ = this->layer_param_.convolution_param().num_output();
   CHECK_GT(num_output_, 0);
   group_ = this->layer_param_.convolution_param().group();
+  group_one_ = this->layer_param_.convolution_param().group_one();
   CHECK_EQ(channels_ % group_, 0);
   CHECK_EQ(num_output_ % group_, 0)
       << "Number of output should be multiples of group.";
@@ -166,6 +182,19 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   weight_offset_ = conv_out_channels_ * kernel_dim_ / group_;
   // Propagate gradients to the parameters (as directed by backward pass).
   this->param_propagate_down_.resize(this->blobs_.size(), true);
+  if(group_one_) {
+    vector<int> no_multiplier_shape;
+    no_multiplier_shape.push_back(conv_out_channels_);
+    no_multiplier_.Reshape(no_multiplier_shape);
+    caffe_set(no_multiplier_.count(), Dtype(1),
+        no_multiplier_.mutable_cpu_data());
+    vector<int> nikhkw_mean_shape;
+    nikhkw_mean_shape.push_back(conv_in_channels_ / group_);
+    for (int i = 0; i < num_spatial_axes_; ++i) {
+      nikhkw_mean_shape.push_back(kernel_shape_data[i]);
+    }
+    nikhkw_mean_.Reshape(nikhkw_mean_shape);
+  }
 }
 
 template <typename Dtype>
