@@ -8,10 +8,31 @@ namespace caffe {
 __global__ void sync_conv_groups() { }
 
 template <typename Dtype>
+__global__ void group_2_kernel(const int count, const int channels, const int height, const int width,
+    Dtype* weights) {
+  CUDA_KERNEL_LOOP(index, count) {
+    int no = index / channels / height/ width;
+    int ni = (index / height/ width) % channels;
+    if(no == ni){
+        ;
+    } else {
+      weights[index] = 0;
+    }
+  }
+}
+
+template <typename Dtype>
 void CuDNNConvolutionLayer<Dtype>::Forward_gpu(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-  if(this->group_one_) {
+  if(this->layer_param_.convolution_param().group_one()) {
     this->group_one_weights();
+  }
+  if(this->layer_param_.convolution_param().group_2()){
+    group_2_kernel<Dtype><<<CAFFE_GET_BLOCKS(this->blobs_[0]->count()), CAFFE_CUDA_NUM_THREADS>>>(
+            this->blobs_[0]->count(), this->blobs_[0]->channels(),
+            this->blobs_[0]->height(), this->blobs_[0]->width(),
+            this->blobs_[0]->mutable_gpu_data());
+    CUDA_POST_KERNEL_CHECK;
   }
   const Dtype* weight = this->blobs_[0]->gpu_data();
   for (int i = 0; i < bottom.size(); ++i) {

@@ -120,7 +120,6 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   num_output_ = this->layer_param_.convolution_param().num_output();
   CHECK_GT(num_output_, 0);
   group_ = this->layer_param_.convolution_param().group();
-  group_one_ = this->layer_param_.convolution_param().group_one();
   CHECK_EQ(channels_ % group_, 0);
   CHECK_EQ(num_output_ % group_, 0)
       << "Number of output should be multiples of group.";
@@ -182,7 +181,7 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   weight_offset_ = conv_out_channels_ * kernel_dim_ / group_;
   // Propagate gradients to the parameters (as directed by backward pass).
   this->param_propagate_down_.resize(this->blobs_.size(), true);
-  if(group_one_) {
+  if(this->layer_param_.convolution_param().group_one()) {
     vector<int> no_multiplier_shape;
     no_multiplier_shape.push_back(conv_out_channels_);
     no_multiplier_.Reshape(no_multiplier_shape);

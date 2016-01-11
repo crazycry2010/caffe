@@ -84,7 +84,6 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   int num_;
   int channels_;
   int group_;
-  bool group_one_;
   int out_spatial_dim_;
   int weight_offset_;
   int num_output_;
